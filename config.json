@@ -1,7 +1,7 @@
 {
   "user": "root",
-  "password": "insert_password",
+  "password": "07734",
   "host": "127.0.0.1",
   "port": 3306,
-  "database": "database_name"
+  "database": "flights_db"
 }
