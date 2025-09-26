@@ -21,6 +21,7 @@ def load_airline_data(engine, airlines_data):
     else:
         print("Airlines dimension table loaded successfully.")
 
+
 def load_airport_data(engine, airports_data):
     try:
         airports_data.to_sql('airport', con=engine, if_exists='append', index=False)
@@ -28,6 +29,7 @@ def load_airport_data(engine, airports_data):
         print("Error while loading airports dimension table: \n", ex)
     else:
         print("Airports dimension table loaded successfully.")
+
 
 def load_date_data(engine, date_data):
     try:
@@ -37,6 +39,7 @@ def load_date_data(engine, date_data):
     else:
         print("Date dimension table loaded successfully.")
 
+
 def load_cancellation_data(engine, cancellation_data):
     try:
         cancellation_data.to_sql('cancellation_reason', con=engine, if_exists='append', index=False)
@@ -45,13 +48,15 @@ def load_cancellation_data(engine, cancellation_data):
     else:
         print("Cancellation dimension table loaded successfully.")
 
+
 def load_flight_data(engine, flight_data):
     try:
-        flight_data.to_sql('fact_flights', con=engine, if_exists='append', index=False)
+        flight_data.to_sql('fact_flights', con=engine, if_exists='append', index=False, chunksize=50000, method='multi')
     except Exception as ex:
         print("Error while loading flight fact table: \n", ex)
     else:
         print("Flight fact table loaded successfully.")
+
 
 if __name__ == '__main__':
     
@@ -72,4 +77,11 @@ if __name__ == '__main__':
     load_airport_data(engine, prepare_airport_data(airports_data))
     load_date_data(engine, prepare_date_data(flights_data))
     load_cancellation_data(engine, prepare_cancellation_data(flights_data))
-    load_flight_data(engine,prepare_flight_data(flights_data, engine))
+
+    # Read the dimension tables to get the IDs and add them to the fact table
+    airport_db = pd.read_sql('SELECT airport_id, iata_code FROM airport', con=engine)
+    airline_db = pd.read_sql('SELECT airline_id, airline_iata FROM airline', con=engine)
+    date_db = pd.read_sql('SELECT date_id, year, month, day FROM date', con=engine)
+    cancellation_db = pd.read_sql('SELECT cancellation_id, cancellation_type FROM cancellation_reason', con=engine)
+
+    load_flight_data(engine,prepare_flight_data(flights_data, cancellation_db, date_db, airport_db, airline_db))

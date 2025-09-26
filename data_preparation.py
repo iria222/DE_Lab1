@@ -47,56 +47,40 @@ def prepare_cancellation_data(flights_data):
 
     return new_cancellation_data
 
-def prepare_flight_data(flight_data, engine):
+def prepare_flight_data(flight_data, cancellation_db, date_db, airport_db, airline_db):
     
     #Change time values to proper format
     time_columns = ['SCHEDULED_DEPARTURE', 'DEPARTURE_TIME', 'WHEELS_OFF', 
                     'WHEELS_ON', 'SCHEDULED_ARRIVAL', 'ARRIVAL_TIME']
     for col in time_columns:
-        flight_data[col] = pd.to_datetime(flight_data[col], format = '%H%M', errors='coerce').dt.strftime
+        flight_data[col] = pd.to_datetime(flight_data[col], format = '%H%M', errors='coerce').dt.strftime('%H:%M:%S')
     
-    cancellation_db = pd.read_sql('SELECT cancellation_id, cancellation_type FROM cancellation_reason', con=engine)
-
+    # Add date ID to fact table
     new_flight_data = flight_data.merge(
-        cancellation_db,
-        how='left',
-        left_on='CANCELLATION_REASON',
-        right_on='cancellation_type'
-    ).drop(columns=['CANCELLATION_REASON', 'cancellation_type'])
-
-    date_db = pd.read_sql('SELECT date_id, year, month, day FROM date', con=engine)
-    new_flight_data = new_flight_data.merge(
         date_db,
         how='left',
         left_on=['YEAR', 'MONTH', 'DAY'],
         right_on=['year', 'month', 'day']
     ).drop(columns=['YEAR', 'MONTH', 'DAY', 'year', 'month', 'day'])
 
-    airport_db = pd.read_sql('SELECT airport_id, iata_code FROM airport', con=engine)
-    new_flight_data = new_flight_data.merge(
-        airport_db,
-        how='left',
-        left_on='ORIGIN_AIRPORT',
-        right_on='iata_code'
-    ).drop(columns=['iata_code', 'ORIGIN_AIRPORT'])
+    #Add cancellation ID to fact table
+    cancellation_map = dict(zip(cancellation_db['cancellation_type'], cancellation_db['cancellation_id']))
+    new_flight_data['cancellation_id'] = flight_data['CANCELLATION_REASON'].map(cancellation_map)
+
+    # Add origin airport ID to fact table
+    origin_map = dict(zip(airport_db['iata_code'], airport_db['airport_id']))
+    new_flight_data['origin_airport_id'] = flight_data['ORIGIN_AIRPORT'].map(origin_map)
 
     new_flight_data= new_flight_data.rename(columns={'airport_id': 'origin_airport_id'})
-
-    new_flight_data = new_flight_data.merge(
-        airport_db,
-        how='left',
-        left_on='DESTINATION_AIRPORT',
-        right_on='iata_code',
-    ).drop(columns=['iata_code', 'DESTINATION_AIRPORT'])
+    
+    # Add destination airport ID to fact table
+    dest_map = dict(zip(airport_db['iata_code'], airport_db['airport_id']))
+    new_flight_data['destination_airport_id'] = flight_data['DESTINATION_AIRPORT'].map(dest_map)
     new_flight_data= new_flight_data.rename(columns={'airport_id': 'destination_airport_id'})
 
-    airline_db = pd.read_sql('SELECT airline_iata, airline_id FROM airline', con=engine)
-    new_flight_data = new_flight_data.merge(
-        airline_db,
-        how='left',
-        left_on='AIRLINE',
-        right_on='airline_iata'
-    ).drop(columns=['AIRLINE', 'airline_iata'])
+    # Add airline ID to fact table
+    airline_map = dict(zip(airline_db['airline_iata'], airline_db['airline_id']))
+    new_flight_data['airline_id'] = flight_data['AIRLINE'].map(airline_map)
 
     new_flight_data = new_flight_data.rename(
         columns = {
