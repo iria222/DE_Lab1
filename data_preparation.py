@@ -82,6 +82,7 @@ def prepare_flight_data(flight_data, cancellation_db, date_db, airport_db, airli
     airline_map = dict(zip(airline_db['airline_iata'], airline_db['airline_id']))
     new_flight_data['airline_id'] = flight_data['AIRLINE'].map(airline_map)
 
+    # Rename columns to match fact table schema
     new_flight_data = new_flight_data.rename(
         columns = {
             'FLIGHT_NUMBER': 'flight_number',
@@ -104,7 +105,7 @@ def prepare_flight_data(flight_data, cancellation_db, date_db, airport_db, airli
             'CANCELLED':'is_cancelled'
         }
     )
-
+    
     needed_columns = ['flight_number','aircraft_id', 'airline_id', 'origin_airport_id', 'destination_airport_id', 'date_id', 'cancellation_id',
                       'scheduled_departure', 'scheduled_time', 'departure_time', 'departure_delay', 'taxi_out', 'wheels_off', 'elapsed_time', 
                       'air_time', 'distance', 'wheels_on', 'taxi_in', 'scheduled_arrival', 'arrival_time', 'arrival_delay', 'is_diverted', 'is_cancelled']
